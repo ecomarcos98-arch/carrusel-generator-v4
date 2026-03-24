@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Carousel Studio</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Sans:wght@400;500;600;700&display=swap');
 
@@ -672,7 +673,7 @@ Texto: Desliza para conocer el sistema completo ➡️"></textarea>
     <div class="preview-header">
       <div class="preview-title">Vista Previa</div>
       <div class="preview-actions">
-        <button class="btn-download-all" id="btnDownloadAll" style="display:none" onclick="downloadAll()">⬇ Descargar Todo</button>
+        <button class="btn-download-all" id="btnDownloadAll" style="display:none" onclick="downloadAllZip()">📦 Descargar .ZIP</button>
       </div>
     </div>
 
@@ -847,30 +848,25 @@ async function generateSlideImage(slide, slideNum, totalSlides) {
     ? `The expert character in this scene should be drawn based on the reference photo provided. Transform this person into a stylized illustration/comic book art style matching the reference.` 
     : `Draw a generic male expert/professional character.`;
 
-  const prompt = `Create a square (1:1) illustration for an Instagram carousel slide.
+  const prompt = `Create a square (1:1) illustration for an Instagram carousel slide. TEXT WILL BE ADDED SEPARATELY BY SOFTWARE — do NOT include ANY text, words, letters, numbers, labels, captions, titles, or watermarks anywhere in the image. The image must be PURE ILLUSTRATION with ZERO text of any kind.
 
-LAYOUT — This is the #1 priority:
-- The image is split into TWO CLEAR ZONES: a TEXT ZONE (top 40% of the image) and an ILLUSTRATION ZONE (bottom 60%).
-- TEXT ZONE: Place the following text in large, bold, white or yellow sans-serif letters on a solid dark background area (dark blue or black, NO busy patterns behind the text). The text must be perfectly readable at small sizes. Text: "${slide.texto}"
-- ILLUSTRATION ZONE: Below the text, draw the scene described below. The illustration should NOT overlap or compete with the text zone.
-
-SCENE (for the illustration zone only): ${slide.escena}
+SCENE: ${slide.escena}
 
 ART STYLE:
-- Semi-realistic editorial illustration, clean comic book style
+- Semi-realistic editorial illustration, clean comic book style with bold outlines
 - Dark color palette: navy blue, charcoal, with selective warm accent colors (orange, gold)
 - The expert character should show clear emotion matching the scene
-- Keep the illustration SIMPLE and CLEAN — maximum 2-3 visual elements besides the character
-- NO floating text, NO random symbols, NO dollar signs scattered around, NO extra arrows or icons cluttering the image
-- The background of the illustration zone should be simple (solid gradient or subtle environment, NOT busy)
+- Keep the illustration CLEAN — maximum 2-3 visual elements besides the character
+- NO floating symbols, NO dollar signs, NO random icons cluttering the image
+- Background should be a simple gradient or subtle environment, NOT busy
 
 ${expertContext}
 
 CRITICAL RULES:
-1. TEXT READABILITY is more important than visual complexity. If in doubt, simplify the illustration.
-2. The text "${slide.texto}" must sit on a CLEAN, UNCLUTTERED area with strong contrast. Never place text over busy illustrations.
-3. Do NOT add any extra text, labels, watermarks, or decorative text elements beyond the provided text.
-4. Keep the overall design EDITORIAL and CLEAN, like a professional social media post, not a cluttered infographic.`;
+1. DO NOT RENDER ANY TEXT IN THE IMAGE. No words, no letters, no numbers, no labels. Text is handled externally.
+2. Leave the TOP 30% of the image slightly darker or with less detail — this area will have text overlaid on it by software.
+3. Keep the overall composition clean with the main subject (expert character) positioned in the center or lower portion.
+4. The illustration should work as a background for bold white text that will be placed on top.`;
 
   const parts = [{ text: prompt }];
 
@@ -946,14 +942,118 @@ function createSlideCard(num, slide, state) {
 }
 
 function updateSlideCard(card, num, slide, imageData) {
-  const container = card.querySelector('.slide-image-container');
-  container.innerHTML = `<img src="data:${imageData.mimeType};base64,${imageData.base64}" alt="Slide ${num}" />`;
-  
-  const meta = card.querySelector('.slide-meta');
-  meta.innerHTML = `
-    <div class="slide-meta-text" title="${slide.escena}">${slide.escena.substring(0, 35)}...</div>
-    <button class="slide-download" onclick="downloadSlide(${num - 1})">⬇ Bajar</button>
-  `;
+  // Compose image + text overlay using canvas
+  composeSlideImage(imageData, slide.texto).then(composedDataUrl => {
+    const container = card.querySelector('.slide-image-container');
+    container.innerHTML = `<img src="${composedDataUrl}" alt="Slide ${num}" />`;
+    
+    // Store composed image for download
+    const composedIdx = generatedImages.findIndex(g => g.index === num);
+    if (composedIdx !== -1) {
+      generatedImages[composedIdx].composedUrl = composedDataUrl;
+    }
+
+    const meta = card.querySelector('.slide-meta');
+    meta.innerHTML = `
+      <div class="slide-meta-text" title="${slide.escena}">${slide.escena.substring(0, 35)}...</div>
+      <button class="slide-download" onclick="downloadSlide(${num - 1})">⬇ Bajar</button>
+    `;
+  });
+}
+
+// CANVAS TEXT COMPOSITING
+function composeSlideImage(imageData, text) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const size = 1080; // Instagram square
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      // Draw the AI-generated illustration
+      ctx.drawImage(img, 0, 0, size, size);
+
+      // Add a subtle dark gradient overlay on top half for text readability
+      const gradient = ctx.createLinearGradient(0, 0, 0, size * 0.65);
+      gradient.addColorStop(0, 'rgba(0, 0, 0, 0.7)');
+      gradient.addColorStop(0.6, 'rgba(0, 0, 0, 0.3)');
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size * 0.65);
+
+      // Render text with Arial, white fill, black stroke
+      renderTextOnCanvas(ctx, text, size);
+
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.src = `data:${imageData.mimeType};base64,${imageData.base64}`;
+  });
+}
+
+function renderTextOnCanvas(ctx, text, canvasSize) {
+  const padding = 60;
+  const maxWidth = canvasSize - (padding * 2);
+  const maxTextAreaHeight = canvasSize * 0.55; // text can use top 55%
+
+  // Start with a large font and shrink to fit
+  let fontSize = 72;
+  const minFontSize = 28;
+  let lines = [];
+
+  while (fontSize >= minFontSize) {
+    ctx.font = `900 ${fontSize}px Arial, Helvetica, sans-serif`;
+    lines = wrapText(ctx, text, maxWidth);
+    const lineHeight = fontSize * 1.25;
+    const totalHeight = lines.length * lineHeight;
+    if (totalHeight <= maxTextAreaHeight) break;
+    fontSize -= 2;
+  }
+
+  const lineHeight = fontSize * 1.25;
+  const totalTextHeight = lines.length * lineHeight;
+  const startY = padding + (maxTextAreaHeight - totalTextHeight) / 2 + fontSize;
+
+  // Configure text style
+  ctx.font = `900 ${fontSize}px Arial, Helvetica, sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.lineJoin = 'round';
+  ctx.miterLimit = 2;
+
+  lines.forEach((line, i) => {
+    const x = padding;
+    const y = startY + (i * lineHeight);
+
+    // Black stroke (border)
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = fontSize * 0.15; // thick border proportional to font
+    ctx.strokeText(line, x, y);
+
+    // White fill
+    ctx.fillStyle = 'white';
+    ctx.fillText(line, x, y);
+  });
+}
+
+function wrapText(ctx, text, maxWidth) {
+  const words = text.split(' ');
+  const lines = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  return lines;
 }
 
 function updateSlideCardError(card, msg) {
@@ -965,10 +1065,10 @@ function updateSlideCardError(card, msg) {
 function downloadSlide(index) {
   const img = generatedImages[index];
   if (!img) return;
-  const ext = img.data.mimeType.includes('png') ? 'png' : 'jpg';
   const link = document.createElement('a');
-  link.href = `data:${img.data.mimeType};base64,${img.data.base64}`;
-  link.download = `carousel_slide_${img.index}.${ext}`;
+  // Use composed image (with text overlay) if available, otherwise raw
+  link.href = img.composedUrl || `data:${img.data.mimeType};base64,${img.data.base64}`;
+  link.download = `carousel_slide_${img.index}.png`;
   link.click();
 }
 
@@ -976,6 +1076,48 @@ function downloadAll() {
   generatedImages.forEach((img, i) => {
     setTimeout(() => downloadSlide(i), i * 300);
   });
+}
+
+async function downloadAllZip() {
+  if (generatedImages.length === 0) return;
+
+  const btn = document.getElementById('btnDownloadAll');
+  const originalText = btn.textContent;
+  btn.textContent = '⏳ Creando ZIP...';
+  btn.disabled = true;
+
+  try {
+    const zip = new JSZip();
+
+    // Sort by index to guarantee order
+    const sorted = [...generatedImages].sort((a, b) => a.index - b.index);
+
+    for (const img of sorted) {
+      // Get the composed image data (with text overlay)
+      const dataUrl = img.composedUrl || `data:${img.data.mimeType};base64,${img.data.base64}`;
+      
+      // Extract base64 from data URL
+      const base64Data = dataUrl.split(',')[1];
+      
+      // Add to zip with ordered name: 1.png, 2.png, etc.
+      zip.file(`${img.index}.png`, base64Data, { base64: true });
+    }
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'carrusel.zip';
+    link.click();
+
+    // Cleanup
+    setTimeout(() => URL.revokeObjectURL(link.href), 5000);
+  } catch (err) {
+    log(`Error creando ZIP: ${err.message}`, 'error');
+  }
+
+  btn.textContent = originalText;
+  btn.disabled = false;
 }
 
 // Init
