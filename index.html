@@ -847,27 +847,30 @@ async function generateSlideImage(slide, slideNum, totalSlides) {
     ? `The expert character in this scene should be drawn based on the reference photo provided. Transform this person into a stylized illustration/comic book art style matching the reference.` 
     : `Draw a generic male expert/professional character.`;
 
-  const prompt = `Generate a high-quality ILLUSTRATION in a stylized comic/graphic novel art style (similar to editorial illustrations, semi-realistic digital art with bold outlines and dramatic lighting).
+  const prompt = `Create a square (1:1) illustration for an Instagram carousel slide.
 
-This is SLIDE ${slideNum} of ${totalSlides} for an Instagram carousel post.
+LAYOUT — This is the #1 priority:
+- The image is split into TWO CLEAR ZONES: a TEXT ZONE (top 40% of the image) and an ILLUSTRATION ZONE (bottom 60%).
+- TEXT ZONE: Place the following text in large, bold, white or yellow sans-serif letters on a solid dark background area (dark blue or black, NO busy patterns behind the text). The text must be perfectly readable at small sizes. Text: "${slide.texto}"
+- ILLUSTRATION ZONE: Below the text, draw the scene described below. The illustration should NOT overlap or compete with the text zone.
 
-SCENE DESCRIPTION: ${slide.escena}
+SCENE (for the illustration zone only): ${slide.escena}
 
-TEXT OVERLAY ON THE IMAGE: "${slide.texto}"
-
-STYLE REQUIREMENTS:
-- Semi-realistic illustration/comic book art style with bold colors and dramatic lighting
-- Dark, moody color palette with high contrast (dark blues, blacks, with accent colors)
-- The text "${slide.texto}" MUST be clearly rendered and legible as bold text overlaid on the image, positioned prominently
-- Include dynamic visual elements: arrows, graphs, charts, visual metaphors relevant to the scene
-- The expert character should show clear EMOTION matching the scene (frustrated, confident, excited, thoughtful, etc.)
-- Professional, polished look suitable for business/marketing Instagram carousels
-- The image should be compelling and scroll-stopping
-- Square format (1:1 aspect ratio)
+ART STYLE:
+- Semi-realistic editorial illustration, clean comic book style
+- Dark color palette: navy blue, charcoal, with selective warm accent colors (orange, gold)
+- The expert character should show clear emotion matching the scene
+- Keep the illustration SIMPLE and CLEAN — maximum 2-3 visual elements besides the character
+- NO floating text, NO random symbols, NO dollar signs scattered around, NO extra arrows or icons cluttering the image
+- The background of the illustration zone should be simple (solid gradient or subtle environment, NOT busy)
 
 ${expertContext}
 
-IMPORTANT: The text overlay "${slide.texto}" must be the MAIN FOCUS of the image and must be clearly readable. Use a bold, impactful font style rendered directly into the illustration.`;
+CRITICAL RULES:
+1. TEXT READABILITY is more important than visual complexity. If in doubt, simplify the illustration.
+2. The text "${slide.texto}" must sit on a CLEAN, UNCLUTTERED area with strong contrast. Never place text over busy illustrations.
+3. Do NOT add any extra text, labels, watermarks, or decorative text elements beyond the provided text.
+4. Keep the overall design EDITORIAL and CLEAN, like a professional social media post, not a cluttered infographic.`;
 
   const parts = [{ text: prompt }];
 
