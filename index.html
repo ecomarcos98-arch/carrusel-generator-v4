@@ -1,12 +1,983 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Carousel App</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carousel Studio</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Sans:wght@400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface-2: #1a1a27;
+    --surface-3: #222234;
+    --border: #2a2a3d;
+    --border-hover: #3d3d5c;
+    --text: #e8e8f0;
+    --text-dim: #8888a0;
+    --text-muted: #555570;
+    --accent: #ff6b35;
+    --accent-glow: rgba(255, 107, 53, 0.15);
+    --accent-2: #ffd166;
+    --danger: #ff4757;
+    --success: #2ed573;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Instrument Sans', -apple-system, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* NOISE OVERLAY */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* HEADER */
+  .header {
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(20px);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transform: rotate(-5deg);
+    box-shadow: 0 4px 20px var(--accent-glow);
+  }
+
+  .logo-text {
+    font-family: 'Space Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-text span { color: var(--accent); }
+
+  .api-key-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .api-key-input {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    width: 280px;
+    font-family: 'Space Mono', monospace;
+    transition: border-color 0.2s;
+  }
+
+  .api-key-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+
+  .api-key-input::placeholder { color: var(--text-muted); }
+
+  .api-status {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    transition: background 0.3s;
+  }
+
+  .api-status.connected { background: var(--success); box-shadow: 0 0 8px rgba(46, 213, 115, 0.5); }
+
+  /* LAYOUT */
+  .app {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    min-height: calc(100vh - 73px);
+  }
+
+  /* LEFT PANEL */
+  .panel {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .panel-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .panel-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* EXPERT PHOTO UPLOAD */
+  .expert-upload {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .expert-upload:hover {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+  }
+
+  .expert-upload.has-image {
+    border-style: solid;
+    border-color: var(--accent);
+    padding: 8px;
+  }
+
+  .expert-upload img {
+    max-height: 100px;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
+  }
+
+  .expert-upload .upload-icon {
+    font-size: 28px;
+    opacity: 0.6;
+  }
+
+  .expert-upload .upload-text {
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .expert-upload .upload-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* TEXTAREA */
+  .slide-input {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 16px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-family: 'Space Mono', monospace;
+    resize: vertical;
+    min-height: 260px;
+    line-height: 1.7;
+    transition: border-color 0.2s;
+    width: 100%;
+    tab-size: 2;
+  }
+
+  .slide-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+
+  .slide-input::placeholder { color: var(--text-muted); }
+
+  .format-hint {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  .format-hint code {
+    background: var(--surface-3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent-2);
+  }
+
+  /* BUTTONS */
+  .btn-generate {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 14px 24px;
+    border-radius: var(--radius);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Instrument Sans', sans-serif;
+    letter-spacing: 0.3px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-generate:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 30px var(--accent-glow);
+  }
+
+  .btn-generate:active:not(:disabled) { transform: translateY(0); }
+
+  .btn-generate:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-generate .spinner {
+    display: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-right: 8px;
+  }
+
+  .btn-generate.loading .spinner { display: inline-block; }
+  .btn-generate.loading .btn-text { opacity: 0.8; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* SLIDE COUNTER */
+  .slide-counter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .slide-counter .count {
+    background: var(--surface-3);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--accent-2);
+  }
+
+  /* RIGHT PANEL - PREVIEW */
+  .preview-area {
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    overflow-y: auto;
+    background: radial-gradient(ellipse at top, rgba(255,107,53,0.03) 0%, transparent 50%);
+  }
+
+  .preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 800px;
+  }
+
+  .preview-title {
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .preview-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn-icon {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    font-size: 16px;
+  }
+
+  .btn-icon:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-glow);
+  }
+
+  /* CAROUSEL GRID */
+  .carousel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+    width: 100%;
+    max-width: 800px;
+  }
+
+  .slide-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+    transition: all 0.3s;
+    animation: slideIn 0.4s ease-out;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .slide-card:hover {
+    border-color: var(--border-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  }
+
+  .slide-number {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(10px);
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'Space Mono', monospace;
+    z-index: 2;
+  }
+
+  .slide-image-container {
+    aspect-ratio: 1 / 1;
+    background: var(--surface-2);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .slide-image-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .slide-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  .slide-loading .pulse-ring {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--accent);
+    border-radius: 50%;
+    animation: pulseRing 1.5s ease-out infinite;
+  }
+
+  @keyframes pulseRing {
+    0% { transform: scale(0.8); opacity: 1; }
+    100% { transform: scale(1.5); opacity: 0; }
+  }
+
+  .slide-error {
+    color: var(--danger);
+    font-size: 12px;
+    text-align: center;
+    padding: 16px;
+  }
+
+  .slide-meta {
+    padding: 12px 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .slide-meta-text {
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+
+  .slide-download {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Instrument Sans', sans-serif;
+  }
+
+  .slide-download:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* EMPTY STATE */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-muted);
+    max-width: 400px;
+  }
+
+  .empty-icon {
+    font-size: 48px;
+    opacity: 0.3;
+  }
+
+  .empty-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-dim);
+  }
+
+  .empty-desc {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* PROGRESS BAR */
+  .progress-bar {
+    width: 100%;
+    max-width: 800px;
+    height: 3px;
+    background: var(--surface-2);
+    border-radius: 2px;
+    overflow: hidden;
+    display: none;
+  }
+
+  .progress-bar.active { display: block; }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    border-radius: 2px;
+    transition: width 0.3s;
+    width: 0%;
+  }
+
+  /* LOG */
+  .log-panel {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    max-height: 120px;
+    overflow-y: auto;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    line-height: 1.8;
+    display: none;
+  }
+
+  .log-panel.active { display: block; }
+
+  .log-entry { color: var(--text-dim); }
+  .log-entry.success { color: var(--success); }
+  .log-entry.error { color: var(--danger); }
+  .log-entry .timestamp { color: var(--text-muted); margin-right: 8px; }
+
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    .app {
+      grid-template-columns: 1fr;
+    }
+    .panel {
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+    .api-key-input { width: 180px; }
+    .carousel-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* DOWNLOAD ALL */
+  .btn-download-all {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 18px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Instrument Sans', sans-serif;
+  }
+
+  .btn-download-all:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-glow);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">🎠</div>
+    <div class="logo-text">Carousel<span>Studio</span></div>
+  </div>
+  <div class="api-key-section">
+    <input type="password" class="api-key-input" id="apiKeyInput" placeholder="Gemini API Key..." />
+    <div class="api-status" id="apiStatus" title="API desconectada"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app">
+  
+  <!-- LEFT PANEL -->
+  <div class="panel">
+    
+    <div class="panel-section">
+      <div class="panel-title">📸 Foto del experto</div>
+      <div class="expert-upload" id="expertUpload" onclick="document.getElementById('expertFile').click()">
+        <div class="upload-icon">📷</div>
+        <div class="upload-text">Click para subir foto</div>
+        <div class="upload-hint">Se transformará en estilo ilustración/dibujo</div>
+      </div>
+      <input type="file" id="expertFile" accept="image/*" style="display:none" />
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">✍️ Contenido de las slides</div>
+      <div class="format-hint">
+        Separá cada slide con <code>--</code><br>
+        Formato por slide:<br>
+        <code>Escena:</code> describí la escena visual<br>
+        <code>Texto:</code> texto que aparecerá en la imagen
+      </div>
+      <textarea class="slide-input" id="slideInput" placeholder="Escena: El experto frustrado frente a múltiples pantallas con gráficos cayendo en rojo, ambiente oscuro y tenso
+Texto: ¿Cansado de perder dinero en anuncios que NO convierten?
+--
+Escena: El experto señalando un gráfico que sube dramáticamente, con flechas verdes, ambiente iluminado y esperanzador
+Texto: Existe un método probado para escalar tus ventas un 300%
+--
+Escena: El experto con los brazos cruzados sonriendo con confianza, detrás de él una pizarra con un embudo de ventas dibujado
+Texto: Desliza para conocer el sistema completo ➡️"></textarea>
+      <div class="slide-counter">
+        <span>Slides detectadas:</span>
+        <span class="count" id="slideCount">0</span>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <button class="btn-generate" id="btnGenerate" disabled>
+        <span class="spinner"></span>
+        <span class="btn-text">⚡ Generar Carrusel</span>
+      </button>
+    </div>
+
+    <div class="log-panel" id="logPanel"></div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="preview-area">
+    <div class="preview-header">
+      <div class="preview-title">Vista Previa</div>
+      <div class="preview-actions">
+        <button class="btn-download-all" id="btnDownloadAll" style="display:none" onclick="downloadAll()">⬇ Descargar Todo</button>
+      </div>
+    </div>
+
+    <div class="progress-bar" id="progressBar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+
+    <div class="carousel-grid" id="carouselGrid">
+      <div class="empty-state">
+        <div class="empty-icon">🎨</div>
+        <div class="empty-title">Tu carrusel aparecerá acá</div>
+        <div class="empty-desc">Subí la foto del experto, escribí el contenido de cada slide y hacé click en "Generar Carrusel"</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// STATE
+let apiKey = '';
+let expertImageBase64 = null;
+let expertImageMime = 'image/jpeg';
+let generatedImages = [];
+
+// ELEMENTS
+const apiKeyInput = document.getElementById('apiKeyInput');
+const apiStatus = document.getElementById('apiStatus');
+const expertUpload = document.getElementById('expertUpload');
+const expertFile = document.getElementById('expertFile');
+const slideInput = document.getElementById('slideInput');
+const slideCount = document.getElementById('slideCount');
+const btnGenerate = document.getElementById('btnGenerate');
+const carouselGrid = document.getElementById('carouselGrid');
+const progressBar = document.getElementById('progressBar');
+const progressFill = document.getElementById('progressFill');
+const logPanel = document.getElementById('logPanel');
+const btnDownloadAll = document.getElementById('btnDownloadAll');
+
+// API KEY
+apiKeyInput.addEventListener('input', (e) => {
+  apiKey = e.target.value.trim();
+  if (apiKey.length > 10) {
+    apiStatus.classList.add('connected');
+    apiStatus.title = 'API Key ingresada';
+  } else {
+    apiStatus.classList.remove('connected');
+    apiStatus.title = 'API desconectada';
+  }
+  updateGenerateButton();
+});
+
+// EXPERT PHOTO
+expertFile.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  expertImageMime = file.type || 'image/jpeg';
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const fullData = ev.target.result;
+    expertImageBase64 = fullData.split(',')[1];
+    expertUpload.innerHTML = `<img src="${fullData}" alt="Experto" /><div class="upload-hint">Click para cambiar</div>`;
+    expertUpload.classList.add('has-image');
+    updateGenerateButton();
+  };
+  reader.readAsDataURL(file);
+});
+
+// SLIDE INPUT
+slideInput.addEventListener('input', () => {
+  const slides = parseSlides();
+  slideCount.textContent = slides.length;
+  updateGenerateButton();
+});
+
+function parseSlides() {
+  const raw = slideInput.value.trim();
+  if (!raw) return [];
+  const blocks = raw.split('--').map(b => b.trim()).filter(Boolean);
+  return blocks.map(block => {
+    const escenaMatch = block.match(/Escena:\s*([\s\S]*?)(?=Texto:|$)/i);
+    const textoMatch = block.match(/Texto:\s*([\s\S]*?)$/i);
+    return {
+      escena: escenaMatch ? escenaMatch[1].trim() : '',
+      texto: textoMatch ? textoMatch[1].trim() : block
+    };
+  });
+}
+
+function updateGenerateButton() {
+  const slides = parseSlides();
+  btnGenerate.disabled = !(apiKey.length > 10 && slides.length > 0);
+}
+
+// LOGGING
+function log(msg, type = '') {
+  logPanel.classList.add('active');
+  const time = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const entry = document.createElement('div');
+  entry.className = `log-entry ${type}`;
+  entry.innerHTML = `<span class="timestamp">[${time}]</span>${msg}`;
+  logPanel.appendChild(entry);
+  logPanel.scrollTop = logPanel.scrollHeight;
+}
+
+// GENERATE
+btnGenerate.addEventListener('click', generateCarousel);
+
+async function generateCarousel() {
+  const slides = parseSlides();
+  if (slides.length === 0) return;
+
+  // UI states
+  btnGenerate.classList.add('loading');
+  btnGenerate.disabled = true;
+  btnDownloadAll.style.display = 'none';
+  progressBar.classList.add('active');
+  progressFill.style.width = '0%';
+  generatedImages = [];
+  
+  carouselGrid.innerHTML = '';
+  log(`Iniciando generación de ${slides.length} slides...`);
+
+  for (let i = 0; i < slides.length; i++) {
+    const slide = slides[i];
+    const progress = ((i + 1) / slides.length * 100);
+    
+    // Create placeholder card
+    const card = createSlideCard(i + 1, slide, 'loading');
+    carouselGrid.appendChild(card);
+
+    log(`Generando slide ${i + 1}/${slides.length}: "${slide.escena.substring(0, 40)}..."`);
+
+    try {
+      const imageData = await generateSlideImage(slide, i + 1, slides.length);
+      
+      if (imageData) {
+        updateSlideCard(card, i + 1, slide, imageData);
+        generatedImages.push({ index: i + 1, data: imageData, slide });
+        log(`✓ Slide ${i + 1} generada correctamente`, 'success');
+      } else {
+        updateSlideCardError(card, 'No se generó imagen');
+        log(`✗ Slide ${i + 1}: no se generó imagen`, 'error');
+      }
+    } catch (err) {
+      updateSlideCardError(card, err.message);
+      log(`✗ Slide ${i + 1}: ${err.message}`, 'error');
+    }
+
+    progressFill.style.width = `${progress}%`;
+
+    // Small delay between requests to avoid rate limits
+    if (i < slides.length - 1) {
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  }
+
+  // Done
+  btnGenerate.classList.remove('loading');
+  btnGenerate.disabled = false;
+  updateGenerateButton();
+  
+  if (generatedImages.length > 0) {
+    btnDownloadAll.style.display = 'block';
+  }
+
+  log(`Generación completa: ${generatedImages.length}/${slides.length} slides exitosas`, generatedImages.length === slides.length ? 'success' : 'error');
+}
+
+async function generateSlideImage(slide, slideNum, totalSlides) {
+  const expertContext = expertImageBase64 
+    ? `The expert character in this scene should be drawn based on the reference photo provided. Transform this person into a stylized illustration/comic book art style matching the reference.` 
+    : `Draw a generic male expert/professional character.`;
+
+  const prompt = `Generate a high-quality ILLUSTRATION in a stylized comic/graphic novel art style (similar to editorial illustrations, semi-realistic digital art with bold outlines and dramatic lighting).
+
+This is SLIDE ${slideNum} of ${totalSlides} for an Instagram carousel post.
+
+SCENE DESCRIPTION: ${slide.escena}
+
+TEXT OVERLAY ON THE IMAGE: "${slide.texto}"
+
+STYLE REQUIREMENTS:
+- Semi-realistic illustration/comic book art style with bold colors and dramatic lighting
+- Dark, moody color palette with high contrast (dark blues, blacks, with accent colors)
+- The text "${slide.texto}" MUST be clearly rendered and legible as bold text overlaid on the image, positioned prominently
+- Include dynamic visual elements: arrows, graphs, charts, visual metaphors relevant to the scene
+- The expert character should show clear EMOTION matching the scene (frustrated, confident, excited, thoughtful, etc.)
+- Professional, polished look suitable for business/marketing Instagram carousels
+- The image should be compelling and scroll-stopping
+- Square format (1:1 aspect ratio)
+
+${expertContext}
+
+IMPORTANT: The text overlay "${slide.texto}" must be the MAIN FOCUS of the image and must be clearly readable. Use a bold, impactful font style rendered directly into the illustration.`;
+
+  const parts = [{ text: prompt }];
+
+  // Include expert reference photo if available
+  if (expertImageBase64) {
+    parts.push({
+      inlineData: {
+        mimeType: expertImageMime,
+        data: expertImageBase64
+      }
+    });
+  }
+
+  const body = {
+    contents: [{
+      parts: parts
+    }],
+    generationConfig: {
+      responseModalities: ["IMAGE", "TEXT"]
+    }
+  };
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${apiKey}`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    const errMsg = errData?.error?.message || `HTTP ${response.status}`;
+    throw new Error(errMsg);
+  }
+
+  const data = await response.json();
+
+  if (!data.candidates || !data.candidates[0]?.content?.parts) {
+    throw new Error('Respuesta vacía de la API');
+  }
+
+  for (const part of data.candidates[0].content.parts) {
+    if (part.inlineData) {
+      return {
+        base64: part.inlineData.data,
+        mimeType: part.inlineData.mimeType || 'image/png'
+      };
+    }
+  }
+
+  return null;
+}
+
+// CARD HELPERS
+function createSlideCard(num, slide, state) {
+  const card = document.createElement('div');
+  card.className = 'slide-card';
+  card.style.animationDelay = `${(num - 1) * 0.1}s`;
+  card.innerHTML = `
+    <div class="slide-number">${num}</div>
+    <div class="slide-image-container">
+      <div class="slide-loading">
+        <div class="pulse-ring"></div>
+        <span>Generando con Nano Banana 2...</span>
+      </div>
+    </div>
+    <div class="slide-meta">
+      <div class="slide-meta-text" title="${slide.escena}">${slide.escena.substring(0, 35)}...</div>
+    </div>
+  `;
+  return card;
+}
+
+function updateSlideCard(card, num, slide, imageData) {
+  const container = card.querySelector('.slide-image-container');
+  container.innerHTML = `<img src="data:${imageData.mimeType};base64,${imageData.base64}" alt="Slide ${num}" />`;
+  
+  const meta = card.querySelector('.slide-meta');
+  meta.innerHTML = `
+    <div class="slide-meta-text" title="${slide.escena}">${slide.escena.substring(0, 35)}...</div>
+    <button class="slide-download" onclick="downloadSlide(${num - 1})">⬇ Bajar</button>
+  `;
+}
+
+function updateSlideCardError(card, msg) {
+  const container = card.querySelector('.slide-image-container');
+  container.innerHTML = `<div class="slide-error">❌ Error: ${msg}</div>`;
+}
+
+// DOWNLOADS
+function downloadSlide(index) {
+  const img = generatedImages[index];
+  if (!img) return;
+  const ext = img.data.mimeType.includes('png') ? 'png' : 'jpg';
+  const link = document.createElement('a');
+  link.href = `data:${img.data.mimeType};base64,${img.data.base64}`;
+  link.download = `carousel_slide_${img.index}.${ext}`;
+  link.click();
+}
+
+function downloadAll() {
+  generatedImages.forEach((img, i) => {
+    setTimeout(() => downloadSlide(i), i * 300);
+  });
+}
+
+// Init
+slideInput.dispatchEvent(new Event('input'));
+</script>
+
+</body>
 </html>
