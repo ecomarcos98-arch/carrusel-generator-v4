@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 
-const GEMINI_API_KEY = "AIzaSyCBJvS-sxFyDSeuRsGXQ4CxTfm2drmGHAk";
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const IMAGE_MODEL = "gemini-2.5-flash-preview-04-17";
 
 // ─── Formats ─────────────────────────────────────────────────────────
